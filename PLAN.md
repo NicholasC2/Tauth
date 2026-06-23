@@ -1,273 +1,145 @@
-# Tauth — Authentication System for T Ecosystem
+# Tauth (MVP Plan)
 
-Tauth is the central identity provider for all Tapps (TchaT, Tmail, Tadmin, etc).
-
-It handles:
-- User accounts
-- App registration (Tapps)
-- Authentication (login/logout)
-- OAuth-style tokens
-- Permissions / scopes
-- Session management
+Tauth is the central auth system for all Tapps (TchaT, Tmail, etc).
 
 ---
 
-# 1. Architecture Overview
+# 1. Core Idea
 
-## Components
-
-Tapps (frontend + backend)
-        ↓
-     Tauth API
-        ↓
- PostgreSQL (via Drizzle ORM)
-
-## Key idea
-- Tapps NEVER directly access the database
-- Only Tauth manages users + permissions
-- Tapps only receive tokens
+- One login system for all Tapps
+- Users authenticate once → use all apps
+- Apps are identified by `clientId`
+- Permissions are controlled via scopes
 
 ---
 
 # 2. Tech Stack
 
-## Backend
-- Node.js (or Next.js API routes / Express)
+- Node.js backend
 - Drizzle ORM
 - PostgreSQL (Docker for dev)
-
-## Auth
-- JWT access tokens
-- Refresh tokens
-- OAuth-style flow (simplified)
-
-## DB
-- PostgreSQL (primary)
-- SQLite optional for local experiments
+- JWT + refresh tokens
 
 ---
 
-# 3. Database Schema (Drizzle)
+# 3. Database (minimal)
 
-## Users
+## users
 - id
 - username
 - email
 - passwordHash
-- createdAt
 
-## Apps (Tapps)
+## apps
 - id
 - name
-- clientId (public)
-- clientSecretHash (private)
+- clientId
+- clientSecretHash
 - allowedScopes
 
-## Sessions
+## sessions
 - id
 - userId
 - appId
 - refreshTokenHash
 - expiresAt
 
-## Permissions / Scopes
-- userId
-- appId
-- scopes[]
+---
+
+# 4. Auth Flow (simple OAuth-style)
+
+1. Tapp redirects user to:
+   /login?client_id=tchat
+
+2. User logs in on Tauth
+
+3. Tauth redirects back:
+   /callback?code=abc123
+
+4. Tapp backend exchanges code:
+   POST /oauth/token
+
+5. Tauth returns:
+   - accessToken (JWT)
+   - refreshToken
 
 ---
 
-# 4. Security Model
+# 5. Tokens
 
-## Secrets
-- clientSecret ONLY stored in Tauth DB (hashed)
-- NEVER exposed to frontend
-- ONLY used in backend server-to-server auth
-
-## App ID
-- Public
-- Safe to expose in frontend
-- Used to identify which Tapp is requesting login
-
-## Tokens
-JWT contains:
+## Access token (JWT)
+Contains:
 - userId
 - appId
 - scopes
 
----
+Short-lived (15m–1h)
 
-# 5. Authentication Flow
-
-## Step 1 — Login request
-Frontend (Tapp):
-
-redirect → https://tauth/login?client_id=tchat
+## Refresh token
+Long-lived, stored hashed in DB
 
 ---
 
-## Step 2 — User logs in
-User enters credentials in Tauth UI.
+# 6. Permissions (Scopes)
 
----
-
-## Step 3 — Redirect back
-https://tchat.com/callback?code=abc123
-
----
-
-## Step 4 — Backend exchange
-Tchat backend:
-
-POST /oauth/token
-client_id
-client_secret
-code
-
-Tauth validates:
-- app exists
-- secret matches
-- code is valid
-
-Returns:
-- accessToken
-- refreshToken
-
----
-
-## Step 5 — API usage
-Authorization: Bearer <accessToken>
-
-Tauth verifies:
-- user
-- app
-- scopes
-
----
-
-# 6. Permissions System (Scopes)
-
-Default scopes:
+Default:
 - profile:read
 
-Optional scopes:
+Optional:
 - email:read
 - profile:update
 - messages:write
-- files:write
-- admin:*
 
-Rule:
-- Tauth decides allowed scopes per app
-- User consents at login
+Rules:
+- Tauth controls what each app is allowed to request
+- User must consent to scopes
 
 ---
 
-# 7. App Registration System
+# 7. Security Rules
 
-Each Tapp must register in Tauth:
+- NEVER store plaintext passwords
+- NEVER expose clientSecret to frontend
+- ALWAYS hash:
+  - passwords
+  - client secrets
+  - refresh tokens
 
-clientId: tchat
-name: TchaT
-allowedScopes:
-  - profile:read
-  - email:read
-
-Generate:
-- clientSecret (stored hashed)
-- redirect URIs
-- metadata
+- Only Tauth talks to DB directly
 
 ---
 
-# 8. Database Setup (Dev)
+# 8. App Model
 
-## Docker PostgreSQL
+Each Tapp must register:
 
-postgres:
-  image: postgres:17
-  ports:
-    - 5432:5432
+- clientId (public)
+- clientSecret (private)
+- allowedScopes
 
-Connection:
-postgresql://postgres:devpassword@localhost:5432/tauth
-
----
-
-# 9. Drizzle Setup
-
-Install:
-- drizzle-orm
-- pg
-- drizzle-kit
-
-Flow:
-schema.ts → drizzle-kit generate → migrate → DB ready
+Example:
+TchaT → profile:read, messages:write
 
 ---
 
-# 10. Folder Structure
+# 9. Dev Setup
 
-tauth/
-├── src/
-│   ├── auth/
-│   ├── users/
-│   ├── apps/
-│   ├── permissions/
-│   ├── sessions/
-│   │
-│   ├── db/
-│   │   ├── schema.ts
-│   │   ├── index.ts
-│   │
-│   ├── routes/
-│   │   ├── login.ts
-│   │   ├── oauth.ts
-│   │   ├── users.ts
-│   │
-│   └── server.ts
-│
-├── drizzle.config.ts
-├── docker-compose.yml
-└── .env
+- PostgreSQL via Docker
+- Drizzle schema + migrations
+- Node API server
 
 ---
 
-# 11. Security Rules
+# 10. Goal
 
-NEVER:
-- store plaintext passwords
-- expose client secrets to frontend
-- allow apps to modify other apps’ permissions
-- trust frontend for auth decisions
-
-ALWAYS:
-- hash passwords (argon2/bcrypt)
-- hash client secrets
-- validate scopes server-side
-- treat JWT as read-only identity
-
----
-
-# 12. Future Upgrades
-
-- OAuth2 full compliance
-- PKCE support for SPA/mobile apps
-- Multi-factor authentication
-- Admin dashboard
-- Rate limiting per app
-- Audit logs
-- SSO across all Tapps
-
----
-
-# 13. Goal
-
-One login system for all Tapps:
+A single identity system for:
 
 - TchaT
 - Tmail
 - Tadmin
-- Tany future Tapp
+- future Tapps
 
-Single identity, multiple apps, strict permissions.
+Result:
+- One login
+- Shared identity
+- Strict app permissions
