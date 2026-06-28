@@ -1,16 +1,17 @@
-import { db } from '@/src/db';
-import { apps } from '@/src/db/schema';
+import { saveApp } from '@/lib/mongodb';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) { // create or edit an app
   try {
-    const { name } = await request.json();
+    const { name, sessionID } = await request.json();
 
     if(typeof name !== "string") throw null;
     if(name.trim().length === 0) throw null;
 
-    db.insert(apps).values({
-      name
+    saveApp({
+      createdAt: new Date(),
+      name,
+      owner: null
     })
   } catch (error) {
     return NextResponse.json(
