@@ -1,5 +1,5 @@
 import "server-only";
-import { MongoClient, ObjectId, WithId } from "mongodb";
+import { MongoClient } from "mongodb";
 
 const uri = process.env.MONGODB_URI!;
 

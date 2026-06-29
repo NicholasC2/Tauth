@@ -1,73 +1,106 @@
 "use client";
 
 import { useState } from "react";
-import { TInput, TButton } from "@t-apps/ui"
-import "../../assets/css/form.css"
+import { TButton, TCode, TInput } from "@t-apps/ui";
+import "../../assets/css/form.css";
 
 export default function Register() {
+    const [username, setUsername] = useState("");
+    const [status, setStatus] = useState("");
     const [disabled, setDisabled] = useState(true);
-
-    function login() {
-        if(disabled) return;
-
-        const usernameInput = document.querySelector(".t-input.username");
-        const passwordInput = document.querySelector(".t-input.password");
-    }
+    const [generatingKeys, setGeneratingKeys] = useState(false);
+    const [generatedKeys, setGeneratedKeys] = useState(false);
 
     async function checkUsername(username: string) {
         const res = await fetch("/api/accounts/check-username", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ username }),
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ username }),
         });
-      
+
         if (!res.ok) {
-          throw new Error("Request failed");
+            throw new Error("Request failed");
         }
-      
+
         const data = await res.json();
         return data.exists;
-      }
+    }
 
-    async function updateStatus() {
-        const status = document.querySelector(".status");
-        const usernameInput = document.querySelector(".t-input.username");
+    async function updateStatus(value: string) {
+        setUsername(value);
 
-        if(!status) return;
+        const trimmed = value.trim();
 
-        if(!usernameInput) return;
-        if(!(usernameInput instanceof HTMLInputElement)) return;
-
-        if(usernameInput.value.trim().length === 0) {
-            status.innerHTML = "Account name must not be empty!";
-            
+        if (!trimmed) {
+            setStatus("Account name must not be empty!");
             setDisabled(true);
-
             return;
         }
 
-        if(await checkUsername(usernameInput.value)) {
-            status.innerHTML = "Account already exists";
-            
+        if (await checkUsername(trimmed)) {
+            setStatus("Account already exists");
             setDisabled(true);
-
             return;
         }
 
-        status.innerHTML = "Account name valid!";
+        setStatus("Account name valid!");
         setDisabled(false);
     }
 
-    return (
-        <>
-            <div className="login form">
-                <label>Username</label>
-                <TInput onInput={updateStatus} placeholder="Enter username here..." className="username"></TInput>
-                <div className="status"></div>
-                <TButton as="button" onClick={login} disabled={disabled}>Register</TButton>
+    function createAccount() {
+        if (disabled) return;
+
+        setGeneratingKeys(true);
+
+        setTimeout(()=>{
+            setGeneratedKeys(true);
+        }, 1000)
+    }
+
+    if(generatedKeys) {
+        return (
+            <div className="keys form">
+                <label>Keys</label>
+                <div>This is your private key:</div>
+                <TCode>key...</TCode>
+                <TButton>Download</TButton>
+                <div>Download it and store it in a safe place.</div>
             </div>
-        </>
-    )
+        )
+    }
+
+    if (generatingKeys) {
+        return (
+            <div className="keys form">
+                <label>Generating Keys...</label>
+            </div>
+        );
+    }
+
+    return (
+        <div className="login form">
+            <label>Username</label>
+
+            <TInput
+                className="username"
+                placeholder="Enter username here..."
+                value={username}
+                onInput={(e) =>
+                    updateStatus((e.target as HTMLInputElement).value)
+                }
+            />
+
+            <div className="status">{status}</div>
+
+            <TButton
+                as="button"
+                onClick={createAccount}
+                disabled={disabled}
+            >
+                Register
+            </TButton>
+        </div>
+    );
 }

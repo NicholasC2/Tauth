@@ -1,5 +1,5 @@
 {
-  "name": "t-app-template",
+  "name": "t-auth",
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",
@@ -8,8 +8,9 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@t-apps/ui": "^0.1.2",
+    "@t-apps/ui": "^0.1.5",
     "argon2": "^0.44.0",
+    "lucide-react": "^1.22.0",
     "mongodb": "^7.4.0",
     "next": "16.2.9",
     "react": "19.2.4",
